@@ -1,0 +1,18 @@
+﻿using semantics ProseTutorial.Semantics;
+using learners ProseTutorial.WitnessFunctions;
+
+language Concat;
+
+@complete feature double Score = ProseTutorial.RankingScore;
+
+@input string v;
+
+@start string program := Concat(s, s, s);
+
+string s := Substring(v, pos, pos) | consStr;
+
+int pos := AbsPos(v, k) | RelPos(v, rr);
+
+int k; 
+string consStr;
+Tuple<Regex,Regex> rr; 
