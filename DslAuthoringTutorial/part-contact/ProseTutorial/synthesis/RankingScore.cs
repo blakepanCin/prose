@@ -15,13 +15,13 @@ namespace ProseTutorial
         [FeatureCalculator(nameof(Semantics.Concat))]
         public static double Concat(double subString1, double subString2, double delimiter)
         {
-            return 1.0;
+            return subString1 * subString2 * delimiter;
         }
 
         [FeatureCalculator("consStr", Method = CalculationMethod.FromLiteral)]
         public static double consStr(string consStr)
         {
-            return 1.0;
+            return 0.01;
         }
 
         [FeatureCalculator(nameof(Semantics.Substring))]

@@ -24,6 +24,7 @@ namespace ProseTutorial
             new Regex(@".+"), // Anything
             new Regex(@"$") // End of line
         };
+        private bool debug_msg = false;
 
         [WitnessFunction(nameof(Semantics.Concat), 2)]
         public DisjunctiveExamplesSpec WitnessConcatDelimiter(GrammarRule rule, ExampleSpec spec)
@@ -41,6 +42,7 @@ namespace ProseTutorial
                     for (int endIdx = startIdx + 1; endIdx <= output.Length; endIdx++)
                     {
                         string delimiter = output.Substring(startIdx, endIdx - startIdx);
+                        if (debug_msg) Console.Out.WriteLine("[WitnessConcatDelimiter]\tdelimiter: " + delimiter);
                         occurrences.Add(delimiter);
                     }
                 }
@@ -53,9 +55,9 @@ namespace ProseTutorial
         }
 
         [WitnessFunction(nameof(Semantics.Concat), 0, DependsOnParameters = new[] { 2 })]
-        public DisjunctiveExamplesSpec WitnessConcatSubstring1(GrammarRule rule, ExampleSpec spec, ExampleSpec delmSpec)
+        public ExampleSpec WitnessConcatSubstring1(GrammarRule rule, ExampleSpec spec, ExampleSpec delmSpec)
         {
-            var result = new Dictionary<State, IEnumerable<object>>();
+            var result = new Dictionary<State, object>();
 
             foreach (KeyValuePair<State, object> example in spec.Examples)
             {
@@ -65,27 +67,18 @@ namespace ProseTutorial
                 int delmStartIdx = output.IndexOf(delimiter);
                 int delmEndIdx = delmStartIdx + delimiter.Length;
 
-                var occurrences = new List<string>();
-                for (int startIdx = delmEndIdx; startIdx < output.Length; startIdx++)
-                {
-                    for (int endIdx = startIdx + 1; endIdx <= output.Length; endIdx++)
-                    {
-                        string subString1 = output.Substring(startIdx, endIdx - startIdx);
-                        occurrences.Add(subString1);
-                    }
-                }
-
-                if (occurrences.Count == 0) return null;
-                result[inputState] = occurrences.Cast<object>();
+                if (output.Length - delmEndIdx <= 0) return null;
+                result[inputState] = output.Substring(delmEndIdx, output.Length - delmEndIdx);
+                if (debug_msg) Console.Out.WriteLine("[WitnessConcatSubstring1]\tdelimiter: " + delimiter + "\tsubString1: " + result[inputState].ToString());
 
             }
-            return DisjunctiveExamplesSpec.From(result);
+            return new ExampleSpec(result);
         }
 
         [WitnessFunction(nameof(Semantics.Concat), 1, DependsOnParameters = new[] { 2, 0 })]
-        public DisjunctiveExamplesSpec WitnessConcatSubstring2(GrammarRule rule, ExampleSpec spec, ExampleSpec delmSpec, ExampleSpec sub1Spec)
+        public ExampleSpec WitnessConcatSubstring2(GrammarRule rule, ExampleSpec spec, ExampleSpec delmSpec, ExampleSpec sub1Spec)
         {
-            var result = new Dictionary<State, IEnumerable<object>>();
+            var result = new Dictionary<State, object>();
 
             foreach (KeyValuePair<State, object> example in spec.Examples)
             {
@@ -95,31 +88,12 @@ namespace ProseTutorial
                 var subString1 = sub1Spec.Examples[inputState] as string;
                 int delmStartIdx = output.IndexOf(delimiter);
                 int delmEndIdx = delmStartIdx + delimiter.Length;
-
-                var occurrences = new List<string>();
-                for (int startIdx = 0; startIdx < delmStartIdx; startIdx++)
-                {
-                    for (int endIdx = startIdx + 1; endIdx <= delmStartIdx; endIdx++)
-                    {
-                        string subString2 = output.Substring(startIdx, endIdx - startIdx);
-                        //occurrences.Add(subString2);
-
-                        string candidate = subString2 + delimiter + subString1;
-                        if (candidate.Length == output.Length)
-                        {
-                            occurrences.Add(subString2);
-                        }
-
-                    }
-                }
-
-                if (occurrences.Count == 0) return null;
-                result[inputState] = occurrences.Cast<object>();
+                if (delmStartIdx <= 0) return null;
+                result[inputState] = output.Substring(0, delmStartIdx - 0);
+                if (debug_msg) Console.Out.WriteLine("[WitnessConcatSubstring2]\tdelimiter: " + delimiter + '\t' + "subString1: " + subString1 + '\t' + "substring2: " + result[inputState].ToString());
             }
-            return DisjunctiveExamplesSpec.From(result);
+            return new ExampleSpec(result);
         }
-
-        // ================================================================================================================== //
 
         [WitnessFunction(nameof(Semantics.Substring), 1)]
         public DisjunctiveExamplesSpec WitnessStartPosition(GrammarRule rule, ExampleSpec spec)
@@ -132,16 +106,18 @@ namespace ProseTutorial
                 var input = inputState[rule.Body[0]] as string;
                 var output = example.Value as string;
                 var occurrences = new List<int>();
+                if (debug_msg) Console.Out.WriteLine("input: " + input.ToString() + ", output: " + output.ToString());
 
                 for (int i = input.IndexOf(output); i >= 0; i = input.IndexOf(output, i + 1)) occurrences.Add(i);
 
                 if (occurrences.Count == 0) return null;
                 result[inputState] = occurrences.Cast<object>();
+                if (debug_msg) Console.Out.WriteLine("input: " + input.ToString() + ", output: " + output.ToString() + "===");
             }
             return new DisjunctiveExamplesSpec(result);
         }
 
-        [WitnessFunction(nameof(Semantics.Substring), 2, DependsOnParameters = new[] {1})]
+        [WitnessFunction(nameof(Semantics.Substring), 2, DependsOnParameters = new[] { 1 })]
         public ExampleSpec WitnessEndPosition(GrammarRule rule, ExampleSpec spec, ExampleSpec startSpec)
         {
             var result = new Dictionary<State, object>();
@@ -149,7 +125,7 @@ namespace ProseTutorial
             {
                 State inputState = example.Key;
                 var output = example.Value as string;
-                var start = (int) startSpec.Examples[inputState];
+                var start = (int)startSpec.Examples[inputState];
                 result[inputState] = start + output.Length;
             }
             return new ExampleSpec(result);
@@ -197,8 +173,8 @@ namespace ProseTutorial
                     if (leftRegex.Count == 0 || rightRegex.Count == 0)
                         return null;
                     regexes.AddRange(from l in leftRegex
-                        from r in rightRegex
-                        select Tuple.Create(l, r));
+                                     from r in rightRegex
+                                     select Tuple.Create(l, r));
                 }
                 if (regexes.Count == 0) return null;
                 result[inputState] = regexes;
@@ -217,11 +193,11 @@ namespace ProseTutorial
                 rightMatches[p] = new List<Regex>();
             }
             foreach (Regex r in UsefulRegexes)
-            foreach (Match m in r.Matches(inp))
-            {
-                leftMatches[m.Index + m.Length].Add(r);
-                rightMatches[m.Index].Add(r);
-            }
+                foreach (Match m in r.Matches(inp))
+                {
+                    leftMatches[m.Index + m.Length].Add(r);
+                    rightMatches[m.Index].Add(r);
+                }
         }
     }
 }
